@@ -18,8 +18,6 @@
   .logo-ring { animation: pulse-ring 3s ease-in-out infinite; }
   @keyframes pulse-ring { 0%,100%{opacity:0.6;transform:scale(1)} 50%{opacity:1;transform:scale(1.05)} }
   .error-box { background: rgba(239,68,68,0.15); border: 1px solid rgba(239,68,68,0.4); }
-  .loading { display: none; }
-  .loading.active { display: flex; }
 </style>
 </head>
 <body class="flex items-center justify-center p-4">
@@ -64,12 +62,10 @@
     <button id="loginBtn" onclick="doLogin()"
       class="btn-primary w-full mt-6 py-3 rounded-xl text-white font-semibold text-sm flex items-center justify-center gap-2">
       <span id="btnText">เข้าสู่ระบบ</span>
-      <div class="loading active" id="btnSpinner">
-        <svg class="animate-spin w-4 h-4 hidden" id="spinnerIcon" fill="none" viewBox="0 0 24 24">
-          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
-          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
-        </svg>
-      </div>
+      <svg id="spinnerIcon" class="animate-spin w-4 h-4 hidden" fill="none" viewBox="0 0 24 24">
+        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+      </svg>
     </button>
   </div>
 
@@ -80,14 +76,21 @@
 <script src="js/auth.js"></script>
 <script src="js/api.js"></script>
 <script>
-  // ถ้า Login อยู่แล้ว ไป Dashboard เลย
-  if (Auth.getSession()) {
-    const role = Auth.getSession().role;
-    const home = APP_CONFIG.ROLES[role]?.home || "dashboard.html";
-    window.location.href = "pages/" + home;
-  }
 
-  // กด Enter ได้
+  // ── ถ้า Login อยู่แล้ว redirect ทันที ─────────────────────
+  (function checkExistingSession() {
+    const session = Auth.getSession();
+    if (!session) return;
+    const roleConfig = APP_CONFIG.ROLES[session.role];
+    if (roleConfig) {
+      window.location.href = "pages/" + roleConfig.home;
+    } else {
+      // Role ไม่รู้จัก ล้าง session ทิ้ง
+      Auth.clearSession();
+    }
+  })();
+
+  // ── กด Enter ────────────────────────────────────────────────
   document.getElementById("password").addEventListener("keydown", e => {
     if (e.key === "Enter") doLogin();
   });
@@ -95,14 +98,16 @@
     if (e.key === "Enter") document.getElementById("password").focus();
   });
 
+  // ── Login ────────────────────────────────────────────────────
   async function doLogin() {
     const username = document.getElementById("username").value.trim();
     const password = document.getElementById("password").value;
-    const btn = document.getElementById("loginBtn");
-    const errBox = document.getElementById("errorBox");
-    const spinner = document.getElementById("spinnerIcon");
-    const btnText = document.getElementById("btnText");
+    const btn      = document.getElementById("loginBtn");
+    const errBox   = document.getElementById("errorBox");
+    const spinner  = document.getElementById("spinnerIcon");
+    const btnText  = document.getElementById("btnText");
 
+    // Validate
     if (!username || !password) {
       showError("กรุณากรอกชื่อผู้ใช้งานและรหัสผ่าน");
       return;
@@ -114,17 +119,31 @@
     btnText.textContent = "กำลังเข้าสู่ระบบ...";
     errBox.classList.add("hidden");
 
+    // เรียก API
     const res = await API.login(username, password);
 
+    // Reset button
     btn.disabled = false;
     spinner.classList.add("hidden");
     btnText.textContent = "เข้าสู่ระบบ";
 
     if (res.success) {
+      // บันทึก Session
       Auth.setSession(res.data.user, res.data.token);
-      const role = res.data.user.role;
-      const home = APP_CONFIG.ROLES[role]?.home || "dashboard.html";
-      window.location.href = "pages/" + home;
+
+      const role       = res.data.user.role;
+      const roleConfig = APP_CONFIG.ROLES[role];
+
+      if (!roleConfig) {
+        // Role ไม่อยู่ใน config — แสดง Error พร้อมบอก role ที่ได้รับ
+        Auth.clearSession();
+        showError("ไม่พบการตั้งค่าสำหรับ Role: " + role + " กรุณาติดต่อผู้ดูแลระบบ");
+        return;
+      }
+
+      // Redirect ไปหน้าที่กำหนด
+      window.location.href = "pages/" + roleConfig.home;
+
     } else {
       showError(res.message || "ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง");
     }
@@ -135,6 +154,7 @@
     box.textContent = msg;
     box.classList.remove("hidden");
   }
+
 </script>
 </body>
 </html>
