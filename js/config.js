@@ -28,7 +28,12 @@ const APP_CONFIG = {
     ASOM:          { label: "อสม.",                home: "followup.html"  },
     VILLAGE_HEAD:  { label: "กำนัน/ผู้ใหญ่บ้าน",  home: "incidents.html" },
     FAMILY:        { label: "ครอบครัว/ผู้ดูแล",   home: "report.html"    },
-    ADMIN_AMPHOE:  { label: "Admin อำเภอ",         home: "dashboard.html" }
+    ADMIN_AMPHOE:  { label: "Admin อำเภอ",         home: "dashboard.html" },
+    VHV:           { label: "อสม.",                home: "followup.html"  },
+    HEADMAN:       { label: "กำนัน/ผู้ใหญ่บ้าน",  home: "incidents.html" },
+    ADMIN:         { label: "Admin อำเภอ",         home: "dashboard.html" },
+    GOVERNOR:      { label: "นายอำเภอ",            home: "dashboard.html" },
+    HEALTH_OFFICER:{ label: "เจ้าหน้าที่สาธารณสุข",home: "patients.html" }
   }
   }
 };
