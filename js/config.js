@@ -21,13 +21,14 @@ const APP_CONFIG = {
   },
 
   ROLES: {
-    SYSADMIN:  { label: "System Admin",        home: "dashboard.html" },
-    DISTRICT:  { label: "นายอำเภอ/ผู้บริหาร", home: "dashboard.html" },
-    DOCTOR:    { label: "แพทย์/พยาบาล",        home: "patients.html"  },
-    NURSE:     { label: "เจ้าหน้าที่ รพ.สต.", home: "patients.html"  },
-    VHV:       { label: "อสม.",                home: "followup.html"  },
-    HEADMAN:   { label: "กำนัน/ผู้ใหญ่บ้าน",  home: "incidents.html" },
-    FAMILY:    { label: "ครอบครัว/ผู้ดูแล",   home: "report.html"    },
-    ADMIN:     { label: "Admin อำเภอ",         home: "dashboard.html" }
+    SYSADMIN:      { label: "System Admin",        home: "dashboard.html" },
+    DISTRICT:      { label: "นายอำเภอ/ผู้บริหาร", home: "dashboard.html" },
+    DOCTOR:        { label: "แพทย์/พยาบาล",        home: "patients.html"  },
+    NURSE:         { label: "เจ้าหน้าที่ รพ.สต.", home: "patients.html"  },
+    ASOM:          { label: "อสม.",                home: "followup.html"  },
+    VILLAGE_HEAD:  { label: "กำนัน/ผู้ใหญ่บ้าน",  home: "incidents.html" },
+    FAMILY:        { label: "ครอบครัว/ผู้ดูแล",   home: "report.html"    },
+    ADMIN_AMPHOE:  { label: "Admin อำเภอ",         home: "dashboard.html" }
+  }
   }
 };
