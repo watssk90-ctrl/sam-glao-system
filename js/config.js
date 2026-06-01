@@ -1,6 +1,5 @@
 // ═══════════════════════════════════════════════════════════════
 // config.js — ระบบสามเกลอ อำเภอพิมาย
-// แก้ค่าในนี้เพียงที่เดียว
 // ═══════════════════════════════════════════════════════════════
 
 const APP_CONFIG = {
@@ -12,7 +11,7 @@ const APP_CONFIG = {
 
   SESSION_KEY: "samegla_session",
   TOKEN_KEY: "samegla_token",
-  SESSION_TIMEOUT: 28800, // 8 ชั่วโมง (วินาที)
+  SESSION_TIMEOUT: 28800,
 
   RISK_LEVELS: {
     1: { label: "ระดับ 1", color: "#22c55e", bg: "#dcfce7", range: "1-4" },
@@ -21,19 +20,18 @@ const APP_CONFIG = {
   },
 
   ROLES: {
-    SYSADMIN:      { label: "System Admin",        home: "dashboard.html" },
-    DISTRICT:      { label: "นายอำเภอ/ผู้บริหาร", home: "dashboard.html" },
-    DOCTOR:        { label: "แพทย์/พยาบาล",        home: "patients.html"  },
-    NURSE:         { label: "เจ้าหน้าที่ รพ.สต.", home: "patients.html"  },
-    ASOM:          { label: "อสม.",                home: "followup.html"  },
-    VILLAGE_HEAD:  { label: "กำนัน/ผู้ใหญ่บ้าน",  home: "incidents.html" },
-    FAMILY:        { label: "ครอบครัว/ผู้ดูแล",   home: "report.html"    },
-    ADMIN_AMPHOE:  { label: "Admin อำเภอ",         home: "dashboard.html" },
-    VHV:           { label: "อสม.",                home: "followup.html"  },
-    HEADMAN:       { label: "กำนัน/ผู้ใหญ่บ้าน",  home: "incidents.html" },
-    ADMIN:         { label: "Admin อำเภอ",         home: "dashboard.html" },
-    GOVERNOR:      { label: "นายอำเภอ",            home: "dashboard.html" },
-    HEALTH_OFFICER:{ label: "เจ้าหน้าที่สาธารณสุข",home: "patients.html" }
-  }
+    SYSADMIN:      { label: "System Admin",          home: "dashboard.html" },
+    DISTRICT:      { label: "นายอำเภอ/ผู้บริหาร",   home: "dashboard.html" },
+    GOVERNOR:      { label: "นายอำเภอ",              home: "dashboard.html" },
+    DOCTOR:        { label: "แพทย์/พยาบาล",          home: "patients.html"  },
+    NURSE:         { label: "เจ้าหน้าที่ รพ.สต.",   home: "patients.html"  },
+    HEALTH_OFFICER:{ label: "เจ้าหน้าที่สาธารณสุข", home: "patients.html"  },
+    ASOM:          { label: "อสม.",                  home: "followup.html"  },
+    VHV:           { label: "อสม.",                  home: "followup.html"  },
+    VILLAGE_HEAD:  { label: "กำนัน/ผู้ใหญ่บ้าน",    home: "incidents.html" },
+    HEADMAN:       { label: "กำนัน/ผู้ใหญ่บ้าน",    home: "incidents.html" },
+    FAMILY:        { label: "ครอบครัว/ผู้ดูแล",     home: "report.html"    },
+    ADMIN_AMPHOE:  { label: "Admin อำเภอ",           home: "dashboard.html" },
+    ADMIN:         { label: "Admin อำเภอ",           home: "dashboard.html" }
   }
 };
