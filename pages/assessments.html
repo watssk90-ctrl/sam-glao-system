@@ -1,0 +1,557 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ประเมินทางคลินิก — ระบบสามเกลอ</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&display=swap');
+  * { font-family: 'Sarabun', sans-serif; }
+  body { background: #f1f5f9; }
+  .card { background: white; border-radius: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
+  .modal-overlay { background: rgba(0,0,0,0.55); backdrop-filter: blur(4px); }
+  .form-label { font-size:12px; font-weight:500; color:#4b5563; margin-bottom:4px; display:block; }
+  .form-input { width:100%; border:1px solid #e5e7eb; border-radius:12px; padding:10px 14px; font-size:14px; outline:none; transition:border-color 0.15s; font-family:'Sarabun',sans-serif; }
+  .form-input:focus { border-color:#3b82f6; box-shadow:0 0 0 3px rgba(59,130,246,0.1); }
+  .form-section { background:#f8fafc; border-radius:12px; padding:16px; margin-bottom:16px; }
+  .form-section-title { font-size:13px; font-weight:600; color:#1e40af; margin-bottom:12px; display:flex; align-items:center; gap:6px; }
+  select.form-input { appearance:none; background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%236b7280'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'/%3E%3C/svg%3E"); background-repeat:no-repeat; background-position:right 12px center; background-size:16px; padding-right:36px; }
+  .patient-result { padding:10px 14px; border-radius:10px; cursor:pointer; transition:background 0.1s; }
+  .patient-result:hover { background:#eff6ff; }
+  .risk-0 { background:#f3f4f6; color:#6b7280; }
+  .risk-1 { background:#dcfce7; color:#166534; }
+  .risk-2 { background:#fef3c7; color:#92400e; }
+  .risk-3 { background:#fee2e2; color:#991b1b; }
+  .score-ring { width:72px; height:72px; border-radius:50%; display:flex; align-items:center; justify-content:center; flex-direction:column; border:4px solid; }
+  .score-low  { border-color:#22c55e; color:#16a34a; }
+  .score-mid  { border-color:#f59e0b; color:#b45309; }
+  .score-high { border-color:#ef4444; color:#dc2626; }
+  .toast { animation:slideUp 0.3s ease; }
+  @keyframes slideUp { from{transform:translateY(20px);opacity:0} to{transform:translateY(0);opacity:1} }
+  .skeleton { background:linear-gradient(90deg,#e2e8f0 25%,#f1f5f9 50%,#e2e8f0 75%); background-size:200% 100%; animation:shimmer 1.5s infinite; }
+  @keyframes shimmer { 0%{background-position:200% 0} 100%{background-position:-200% 0} }
+  .required::after { content:" *"; color:#ef4444; }
+</style>
+</head>
+<body>
+
+<div id="nav-main-content" class="nav-main p-4 md:p-6">
+
+  <!-- Header -->
+  <div class="flex items-center justify-between mb-4 md:mb-6 pt-2 md:pt-0">
+    <div>
+      <h2 class="text-lg md:text-xl font-bold text-gray-800">ประเมินทางคลินิก</h2>
+      <p class="text-gray-500 text-xs md:text-sm mt-0.5">บันทึกผลการประเมินทางคลินิกโดยแพทย์/พยาบาล</p>
+    </div>
+    <button onclick="openAddModal()"
+      class="flex items-center gap-2 bg-purple-600 hover:bg-purple-700 text-white rounded-xl px-3 md:px-4 py-2 text-xs md:text-sm font-medium transition-colors">
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+      <span class="hidden sm:inline">บันทึกการประเมิน</span>
+      <span class="sm:hidden">เพิ่ม</span>
+    </button>
+  </div>
+
+  <!-- Filter -->
+  <div class="card p-3 md:p-4 mb-4 flex gap-2 md:gap-3 flex-wrap items-center">
+    <div class="relative flex-1 min-w-36">
+      <svg class="absolute left-3 top-2.5 w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0"/></svg>
+      <input id="searchInput" type="text" placeholder="ค้นหาชื่อผู้ป่วย..."
+        class="w-full border border-gray-200 rounded-xl pl-9 pr-4 py-2 text-sm outline-none focus:border-blue-300"
+        oninput="filterAssessments()">
+    </div>
+    <select id="riskFilter" class="border border-gray-200 rounded-xl px-3 py-2 text-sm text-gray-600 outline-none" onchange="filterAssessments()">
+      <option value="">ทุกระดับ</option>
+      <option value="LEVEL_0">ระดับ 0 — ปกติ</option>
+      <option value="LEVEL_1">ระดับ 1 — เฝ้าระวัง</option>
+      <option value="LEVEL_2">ระดับ 2 — เสี่ยงปานกลาง</option>
+      <option value="LEVEL_3">ระดับ 3 — เสี่ยงสูง</option>
+    </select>
+    <button onclick="loadAssessments()" class="flex items-center gap-1 border border-gray-200 rounded-xl px-3 py-2 text-sm text-gray-600 hover:bg-gray-50">
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+    </button>
+  </div>
+
+  <!-- Stats -->
+  <div class="grid grid-cols-4 gap-2 md:gap-3 mb-4" id="statsRow">
+    <div class="skeleton h-14 rounded-xl"></div>
+    <div class="skeleton h-14 rounded-xl"></div>
+    <div class="skeleton h-14 rounded-xl"></div>
+    <div class="skeleton h-14 rounded-xl"></div>
+  </div>
+
+  <!-- Assessment List -->
+  <div id="assessmentList" class="space-y-3">
+    <div class="skeleton h-24 rounded-xl"></div>
+    <div class="skeleton h-24 rounded-xl"></div>
+    <div class="skeleton h-24 rounded-xl"></div>
+  </div>
+
+  <div id="listFooter" class="text-xs text-gray-400 mt-3 text-center"></div>
+
+</div>
+
+<!-- ═══ Modal บันทึกการประเมิน ═══ -->
+<div id="assessModal" class="hidden fixed inset-0 modal-overlay z-50 flex items-start justify-center p-2 md:p-4 overflow-y-auto">
+  <div class="bg-white rounded-2xl w-full max-w-2xl my-4 shadow-2xl">
+
+    <div class="flex items-center justify-between px-5 py-4 border-b border-gray-100 sticky top-0 bg-white rounded-t-2xl z-10">
+      <h3 class="font-bold text-gray-800 text-lg">บันทึกการประเมินทางคลินิก</h3>
+      <button onclick="closeModal()" class="w-8 h-8 flex items-center justify-center rounded-xl text-gray-400 hover:bg-gray-100">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+      </button>
+    </div>
+
+    <div class="p-5">
+
+      <!-- ส่วนที่ 1: เลือกผู้ป่วย -->
+      <div class="form-section">
+        <div class="form-section-title">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
+          ผู้ป่วย <span class="text-red-500 font-normal">*</span>
+        </div>
+        <div class="relative mb-2">
+          <svg class="absolute left-3 top-3 w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0"/></svg>
+          <input id="patientSearch" type="text" placeholder="พิมพ์ชื่อเพื่อค้นหาผู้ป่วย..."
+            class="form-input pl-10" oninput="searchPatient(this.value)">
+        </div>
+        <div id="searchResults" class="hidden border border-gray-100 rounded-xl overflow-hidden mb-2 max-h-40 overflow-y-auto"></div>
+        <div id="selectedPatient" class="hidden bg-blue-50 border border-blue-200 rounded-xl p-3">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-2">
+              <div class="w-8 h-8 rounded-full bg-blue-200 flex items-center justify-center text-blue-700 font-bold text-sm" id="selAvatar">?</div>
+              <div>
+                <p id="selName" class="font-semibold text-gray-800 text-sm">-</p>
+                <p id="selInfo" class="text-gray-500 text-xs">-</p>
+              </div>
+            </div>
+            <button onclick="clearPatient()" class="text-gray-400 hover:text-gray-600 text-xs">เปลี่ยน</button>
+          </div>
+        </div>
+        <input type="hidden" id="f_patient_id">
+        <div class="mt-3">
+          <label class="form-label">Followup ID (ถ้ามี)</label>
+          <input id="f_followup_id" type="text" placeholder="followup_id จาก FOLLOWUP Sheet" class="form-input font-mono text-xs">
+        </div>
+      </div>
+
+      <!-- ส่วนที่ 2: คะแนนการประเมิน -->
+      <div class="form-section">
+        <div class="form-section-title">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
+          คะแนนการประเมิน
+        </div>
+
+        <!-- Score Ring Display -->
+        <div class="flex items-center gap-4 mb-4 p-3 bg-white rounded-xl border border-gray-100">
+          <div class="score-ring score-low" id="scoreRing">
+            <span id="totalScoreDisplay" class="text-xl font-bold">0</span>
+            <span class="text-xs">รวม</span>
+          </div>
+          <div class="flex-1">
+            <div id="riskBadge" class="inline-flex px-3 py-1.5 rounded-full text-sm font-medium risk-0 mb-2">
+              ระดับ 0 — ปกติ
+            </div>
+            <div class="grid grid-cols-2 gap-2 text-xs text-gray-500">
+              <span>อาการ: <span id="symDisplay" class="font-bold text-gray-700">0</span></span>
+              <span>ความรุนแรง: <span id="violDisplay" class="font-bold text-gray-700">0</span></span>
+            </div>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-3 gap-3 mb-3">
+          <div>
+            <label class="form-label required">คะแนนอาการ</label>
+            <input id="f_symptom_score" type="number" min="0" max="5" placeholder="0-5"
+              class="form-input" oninput="calcTotal()">
+          </div>
+          <div>
+            <label class="form-label required">คะแนนความรุนแรง</label>
+            <input id="f_violence_score" type="number" min="0" max="7" placeholder="0-7"
+              class="form-input" oninput="calcTotal()">
+          </div>
+          <div>
+            <label class="form-label">คะแนนรวม</label>
+            <input id="f_total_risk_score" type="number" class="form-input bg-gray-50" readonly>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="form-label required">ระดับความเสี่ยง</label>
+            <select id="f_risk_level" class="form-input">
+              <option value="LEVEL_0">ระดับ 0 — ปกติ</option>
+              <option value="LEVEL_1">ระดับ 1 — เฝ้าระวัง</option>
+              <option value="LEVEL_2">ระดับ 2 — เสี่ยงปานกลาง</option>
+              <option value="LEVEL_3">ระดับ 3 — เสี่ยงสูง</option>
+            </select>
+          </div>
+          <div>
+            <label class="form-label required">วันที่ประเมิน</label>
+            <input id="f_assessment_date" type="date" class="form-input">
+          </div>
+        </div>
+      </div>
+
+      <!-- ส่วนที่ 3: คำแนะนำทางคลินิก -->
+      <div class="form-section">
+        <div class="form-section-title">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
+          คำแนะนำทางคลินิก
+        </div>
+        <div class="mb-3">
+          <label class="form-label required">การดำเนินการที่แนะนำ</label>
+          <select id="f_recommended_action" class="form-input">
+            <option value="">-- เลือก --</option>
+            <option value="CONTINUE">ดำเนินการต่อตามแผนเดิม</option>
+            <option value="MONITOR">เพิ่มความถี่การติดตาม</option>
+            <option value="ADJUST_MED">ปรับยา</option>
+            <option value="REFER">ส่งต่อแพทย์เฉพาะทาง</option>
+            <option value="ADMIT">รับเข้ารักษาในโรงพยาบาล</option>
+            <option value="EMERGENCY">ส่งต่อด่วน/ฉุกเฉิน</option>
+          </select>
+        </div>
+        <div class="mb-3">
+          <label class="form-label">การปรับแผนการรักษา</label>
+          <textarea id="f_plan_adjustment" rows="2"
+            placeholder="ระบุการปรับแผนการรักษา เช่น เปลี่ยนยา เพิ่มความถี่เยี่ยม..."
+            class="form-input resize-none"></textarea>
+        </div>
+        <div class="mb-3">
+          <label class="form-label">บันทึกทางคลินิก</label>
+          <textarea id="f_clinical_note" rows="3"
+            placeholder="บันทึกผลการตรวจและสังเกตการณ์ทางคลินิก..."
+            class="form-input resize-none"></textarea>
+        </div>
+        <div>
+          <label class="form-label">วันนัดประเมินครั้งถัดไป</label>
+          <input id="f_next_assessment_date" type="date" class="form-input">
+        </div>
+      </div>
+
+      <!-- Error -->
+      <div id="modalError" class="hidden bg-red-50 border border-red-200 rounded-xl p-3 text-red-600 text-sm mb-4"></div>
+
+    </div>
+
+    <div class="flex gap-3 px-5 pb-5 sticky bottom-0 bg-white border-t border-gray-100 pt-4">
+      <button onclick="closeModal()" class="flex-1 border border-gray-200 rounded-xl py-2.5 text-sm text-gray-600 hover:bg-gray-50">ยกเลิก</button>
+      <button onclick="saveAssessment()" id="saveBtn" class="flex-1 bg-purple-600 hover:bg-purple-700 text-white rounded-xl py-2.5 text-sm font-medium transition-colors">บันทึก</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div id="toast" class="hidden fixed bottom-20 md:bottom-6 left-1/2 -translate-x-1/2 z-50 toast">
+  <div id="toastInner" class="px-5 py-3 rounded-xl shadow-lg text-sm font-medium text-white">
+    <span id="toastMsg"></span>
+  </div>
+</div>
+
+<script src="../js/config.js"></script>
+<script src="../js/auth.js"></script>
+<script src="../js/api.js"></script>
+<script src="../js/nav.js"></script>
+<script>
+NAV.init();
+
+const session    = Auth.getSession();
+let allPatients  = [];
+let allAssess    = [];
+let selectedPid  = null;
+
+const RISK_LABELS = {
+  LEVEL_0:"ระดับ 0 — ปกติ", LEVEL_1:"ระดับ 1 — เฝ้าระวัง",
+  LEVEL_2:"ระดับ 2 — เสี่ยงปานกลาง", LEVEL_3:"ระดับ 3 — เสี่ยงสูง"
+};
+const RISK_BADGE = {
+  LEVEL_0:"risk-0", LEVEL_1:"risk-1", LEVEL_2:"risk-2", LEVEL_3:"risk-3"
+};
+const ACTION_LABELS = {
+  CONTINUE:"ดำเนินการต่อ", MONITOR:"เพิ่มการติดตาม",
+  ADJUST_MED:"ปรับยา", REFER:"ส่งต่อ",
+  ADMIT:"รับเข้ารักษา", EMERGENCY:"ส่งต่อด่วน"
+};
+
+// ── โหลดผู้ป่วย ───────────────────────────────────────────────
+async function loadAllPatients() {
+  const res = await API.getPatients();
+  if (res.success) allPatients = res.data||[];
+}
+
+// ── โหลดการประเมิน ────────────────────────────────────────────
+async function loadAssessments() {
+  document.getElementById("assessmentList").innerHTML =
+    `<div class="skeleton h-24 rounded-xl mb-2"></div>
+     <div class="skeleton h-24 rounded-xl mb-2"></div>`;
+
+  // ดึงข้อมูลจาก followup ของผู้ป่วยที่มีความเสี่ยง
+  allAssess = [];
+  const riskPatients = allPatients.filter(p =>
+    ["LEVEL_1","LEVEL_2","LEVEL_3"].includes(String(p.risk_category))
+  ).slice(0, 30);
+
+  for (const p of riskPatients) {
+    const r = await API.getFollowups(p.patient_id);
+    if (r.success && r.data?.length) {
+      r.data.slice(0, 3).forEach(f => {
+        allAssess.push({
+          assess_id:        f.followup_id,
+          patient_id:       p.patient_id,
+          patient_name:     `${p.title||""} ${p.first_name} ${p.last_name}`.trim(),
+          followup_id:      f.followup_id,
+          assessment_date:  f.timestamp?.split("T")[0]||f.created_date?.split("T")[0]||"-",
+          symptom_score:    f.sym_score||0,
+          violence_score:   f.risk_score||0,
+          total_risk_score: f.total_score||0,
+          risk_level:       f.risk_level||"LEVEL_0",
+          recommended_action: "",
+          clinical_note:    f.behavior_note||"",
+          created_date:     f.created_date||""
+        });
+      });
+    }
+  }
+
+  allAssess.sort((a,b) => new Date(b.created_date) - new Date(a.created_date));
+  renderStats();
+  filterAssessments();
+}
+
+function renderStats() {
+  const l0 = allAssess.filter(a=>a.risk_level==="LEVEL_0").length;
+  const l1 = allAssess.filter(a=>a.risk_level==="LEVEL_1").length;
+  const l2 = allAssess.filter(a=>a.risk_level==="LEVEL_2").length;
+  const l3 = allAssess.filter(a=>a.risk_level==="LEVEL_3").length;
+  document.getElementById("statsRow").innerHTML = `
+    <div class="card p-3 text-center border-l-4 border-gray-300"><p class="text-xl font-bold text-gray-500">${l0}</p><p class="text-gray-400 text-xs">ระดับ 0</p></div>
+    <div class="card p-3 text-center border-l-4 border-green-400"><p class="text-xl font-bold text-green-600">${l1}</p><p class="text-gray-400 text-xs">ระดับ 1</p></div>
+    <div class="card p-3 text-center border-l-4 border-yellow-400"><p class="text-xl font-bold text-yellow-600">${l2}</p><p class="text-gray-400 text-xs">ระดับ 2</p></div>
+    <div class="card p-3 text-center border-l-4 border-red-400"><p class="text-xl font-bold text-red-600">${l3}</p><p class="text-gray-400 text-xs">ระดับ 3</p></div>
+  `;
+}
+
+function filterAssessments() {
+  const s  = document.getElementById("searchInput").value.toLowerCase();
+  const rl = document.getElementById("riskFilter").value;
+  const filtered = allAssess.filter(a => {
+    const ms = !s  || (a.patient_name||"").toLowerCase().includes(s);
+    const mr = !rl || a.risk_level===rl;
+    return ms && mr;
+  });
+  renderList(filtered);
+}
+
+function renderList(data) {
+  const container = document.getElementById("assessmentList");
+  const footer    = document.getElementById("listFooter");
+  if (!data.length) {
+    container.innerHTML=`<div class="card p-8 text-center text-gray-400 text-sm">ไม่มีข้อมูลการประเมิน</div>`;
+    footer.textContent=""; return;
+  }
+  container.innerHTML = data.map(a => {
+    const rb = RISK_BADGE[a.risk_level]||"risk-0";
+    const rl = RISK_LABELS[a.risk_level]||a.risk_level;
+    const al = ACTION_LABELS[a.recommended_action]||"";
+    return `
+    <div class="card p-4 hover:shadow-md transition-shadow">
+      <div class="flex items-start justify-between mb-2">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-full bg-purple-100 flex items-center justify-center text-purple-600 font-bold text-sm flex-shrink-0">
+            ${(a.patient_name||"?")[0]}
+          </div>
+          <div>
+            <p class="font-semibold text-gray-800 text-sm">${a.patient_name||"-"}</p>
+            <p class="text-gray-500 text-xs">${a.assessment_date||"-"}</p>
+          </div>
+        </div>
+        <span class="text-xs px-2.5 py-1 rounded-full font-medium ${rb}">${rl}</span>
+      </div>
+      <div class="grid grid-cols-3 gap-2 text-xs text-gray-500 mt-2">
+        <span>อาการ: <span class="font-bold text-gray-700">${a.symptom_score||0}</span></span>
+        <span>ความรุนแรง: <span class="font-bold text-gray-700">${a.violence_score||0}</span></span>
+        <span>รวม: <span class="font-bold text-gray-700">${a.total_risk_score||0}</span></span>
+      </div>
+      ${al ? `<div class="mt-2 bg-purple-50 rounded-lg p-2 text-xs text-purple-700">แนะนำ: ${al}</div>` : ""}
+      ${a.clinical_note ? `<p class="text-xs text-gray-500 mt-1 line-clamp-2">${a.clinical_note}</p>` : ""}
+    </div>`;
+  }).join("");
+  footer.textContent = `ทั้งหมด ${data.length} รายการ`;
+}
+
+// ── Patient Search ────────────────────────────────────────────
+function searchPatient(q) {
+  q = q.toLowerCase().trim();
+  const results = document.getElementById("searchResults");
+  if (!q) { results.classList.add("hidden"); return; }
+  const matches = allPatients.filter(p => {
+    const name = `${p.first_name||""} ${p.last_name||""}`.toLowerCase();
+    return name.includes(q) || String(p.id_card||"").includes(q);
+  }).slice(0, 6);
+  if (!matches.length) {
+    results.innerHTML=`<div class="patient-result text-gray-400 text-sm">ไม่พบผู้ป่วย</div>`;
+  } else {
+    results.innerHTML = matches.map(p=>`
+      <div class="patient-result" onclick="selectPatient('${p.patient_id}')">
+        <p class="font-medium text-gray-800 text-sm">${p.title||""} ${p.first_name||""} ${p.last_name||""}</p>
+        <p class="text-gray-400 text-xs">ม.${p.moo||"-"} ต.${p.tambon||"-"} · ระดับ ${p.risk_category||"0"}</p>
+      </div>`).join("");
+  }
+  results.classList.remove("hidden");
+}
+
+function selectPatient(pid) {
+  const p = allPatients.find(x=>x.patient_id===pid);
+  if (!p) return;
+  selectedPid = pid;
+  document.getElementById("f_patient_id").value = pid;
+  document.getElementById("searchResults").classList.add("hidden");
+  document.getElementById("patientSearch").value="";
+  document.getElementById("selName").textContent=`${p.title||""} ${p.first_name||""} ${p.last_name||""}`;
+  document.getElementById("selInfo").textContent=`ม.${p.moo||"-"} ต.${p.tambon||"-"} · ระดับ ${p.risk_category||"0"}`;
+  document.getElementById("selAvatar").textContent=(p.first_name||"?")[0];
+  document.getElementById("selectedPatient").classList.remove("hidden");
+}
+
+function clearPatient() {
+  selectedPid=null;
+  document.getElementById("f_patient_id").value="";
+  document.getElementById("selectedPatient").classList.add("hidden");
+  document.getElementById("patientSearch").value="";
+}
+
+// ── คำนวณคะแนนรวม ────────────────────────────────────────────
+function calcTotal() {
+  const sym  = parseInt(document.getElementById("f_symptom_score").value)||0;
+  const viol = parseInt(document.getElementById("f_violence_score").value)||0;
+  const total = sym + viol;
+  document.getElementById("f_total_risk_score").value = total;
+  document.getElementById("symDisplay").textContent   = sym;
+  document.getElementById("violDisplay").textContent  = viol;
+  document.getElementById("totalScoreDisplay").textContent = total;
+
+  const ring  = document.getElementById("scoreRing");
+  const badge = document.getElementById("riskBadge");
+  const sel   = document.getElementById("f_risk_level");
+
+  ring.className = "score-ring ";
+  if (total === 0) {
+    ring.className += "score-low";
+    badge.className = "inline-flex px-3 py-1.5 rounded-full text-sm font-medium risk-0";
+    badge.textContent = "ระดับ 0 — ปกติ";
+    sel.value = "LEVEL_0";
+  } else if (viol >= 1 || total >= 10) {
+    ring.className += "score-high";
+    badge.className = "inline-flex px-3 py-1.5 rounded-full text-sm font-medium risk-3";
+    badge.textContent = "ระดับ 3 — เสี่ยงสูง";
+    sel.value = "LEVEL_3";
+  } else if (total <= 4) {
+    ring.className += "score-low";
+    badge.className = "inline-flex px-3 py-1.5 rounded-full text-sm font-medium risk-1";
+    badge.textContent = "ระดับ 1 — เฝ้าระวัง";
+    sel.value = "LEVEL_1";
+  } else {
+    ring.className += "score-mid";
+    badge.className = "inline-flex px-3 py-1.5 rounded-full text-sm font-medium risk-2";
+    badge.textContent = "ระดับ 2 — เสี่ยงปานกลาง";
+    sel.value = "LEVEL_2";
+  }
+}
+
+// ── Modal ─────────────────────────────────────────────────────
+function openAddModal() {
+  selectedPid = null;
+  const fields = [
+    "patient_id","followup_id","symptom_score","violence_score",
+    "total_risk_score","recommended_action","plan_adjustment",
+    "clinical_note","next_assessment_date"
+  ];
+  fields.forEach(f => {
+    const el = document.getElementById("f_"+f);
+    if (!el) return;
+    if (el.tagName==="SELECT") el.value = el.options[0]?.value||"";
+    else el.value = "";
+  });
+  document.getElementById("f_assessment_date").value = new Date().toISOString().split("T")[0];
+  document.getElementById("f_risk_level").value = "LEVEL_0";
+  document.getElementById("selectedPatient").classList.add("hidden");
+  document.getElementById("patientSearch").value = "";
+  document.getElementById("modalError").classList.add("hidden");
+  document.getElementById("totalScoreDisplay").textContent = "0";
+  document.getElementById("symDisplay").textContent  = "0";
+  document.getElementById("violDisplay").textContent = "0";
+  document.getElementById("scoreRing").className = "score-ring score-low";
+  document.getElementById("riskBadge").textContent = "ระดับ 0 — ปกติ";
+  document.getElementById("riskBadge").className = "inline-flex px-3 py-1.5 rounded-full text-sm font-medium risk-0";
+  document.getElementById("assessModal").classList.remove("hidden");
+}
+
+function closeModal() { document.getElementById("assessModal").classList.add("hidden"); }
+
+async function saveAssessment() {
+  const patientId      = document.getElementById("f_patient_id").value || selectedPid;
+  const assessmentDate = document.getElementById("f_assessment_date").value;
+  const symScore       = document.getElementById("f_symptom_score").value;
+  const violScore      = document.getElementById("f_violence_score").value;
+  const recAction      = document.getElementById("f_recommended_action").value;
+
+  if (!patientId)      return showModalError("กรุณาเลือกผู้ป่วย");
+  if (!assessmentDate) return showModalError("กรุณาระบุวันที่ประเมิน");
+  if (symScore==="")   return showModalError("กรุณากรอกคะแนนอาการ");
+  if (violScore==="")  return showModalError("กรุณากรอกคะแนนความรุนแรง");
+  if (!recAction)      return showModalError("กรุณาเลือกการดำเนินการที่แนะนำ");
+
+  const btn = document.getElementById("saveBtn");
+  btn.disabled=true; btn.textContent="กำลังบันทึก...";
+
+  const total = (parseInt(symScore)||0) + (parseInt(violScore)||0);
+  const data = {
+    patient_id:           patientId,
+    followup_id:          document.getElementById("f_followup_id").value||"",
+    assessor_user_id:     session?.user_id||"",
+    assessment_date:      assessmentDate,
+    symptom_score:        parseInt(symScore)||0,
+    violence_score:       parseInt(violScore)||0,
+    total_risk_score:     total,
+    risk_level:           document.getElementById("f_risk_level").value,
+    recommended_action:   recAction,
+    plan_adjustment:      document.getElementById("f_plan_adjustment").value||"",
+    next_assessment_date: document.getElementById("f_next_assessment_date").value||"",
+    clinical_note:        document.getElementById("f_clinical_note").value||""
+  };
+
+  const res = await API.call("assessment.create", data);
+  btn.disabled=false; btn.textContent="บันทึก";
+
+  if (res.success) {
+    closeModal();
+    showToast("✅ บันทึกการประเมินสำเร็จ","success");
+    await loadAssessments();
+  } else {
+    showModalError(res.message||"บันทึกไม่สำเร็จ — กรุณาตรวจสอบ GAS Route");
+  }
+}
+
+function showModalError(msg) {
+  const el=document.getElementById("modalError");
+  el.textContent=msg; el.classList.remove("hidden");
+}
+
+let toastTimer;
+function showToast(msg,type="success") {
+  const t=document.getElementById("toast"),i=document.getElementById("toastInner"),m=document.getElementById("toastMsg");
+  i.className=`px-5 py-3 rounded-xl shadow-lg text-sm font-medium text-white ${type==="success"?"bg-green-600":"bg-red-500"}`;
+  m.textContent=msg; t.classList.remove("hidden");
+  clearTimeout(toastTimer); toastTimer=setTimeout(()=>t.classList.add("hidden"),3500);
+}
+
+// ── Init ──────────────────────────────────────────────────────
+async function init() {
+  await loadAllPatients();
+  await loadAssessments();
+}
+
+init();
+</script>
+</body>
+</html>
