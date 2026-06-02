@@ -1,0 +1,532 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>แผนการรักษา — ระบบสามเกลอ</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&display=swap');
+  * { font-family: 'Sarabun', sans-serif; }
+  body { background: #f1f5f9; }
+  .card { background: white; border-radius: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
+  .modal-overlay { background: rgba(0,0,0,0.55); backdrop-filter: blur(4px); }
+  .form-label { font-size:12px; font-weight:500; color:#4b5563; margin-bottom:4px; display:block; }
+  .form-input { width:100%; border:1px solid #e5e7eb; border-radius:12px; padding:10px 14px; font-size:14px; outline:none; transition:border-color 0.15s; font-family:'Sarabun',sans-serif; }
+  .form-input:focus { border-color:#3b82f6; box-shadow:0 0 0 3px rgba(59,130,246,0.1); }
+  .form-section { background:#f8fafc; border-radius:12px; padding:16px; margin-bottom:16px; }
+  .form-section-title { font-size:13px; font-weight:600; color:#1e40af; margin-bottom:12px; display:flex; align-items:center; gap:6px; }
+  select.form-input { appearance:none; background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%236b7280'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'/%3E%3C/svg%3E"); background-repeat:no-repeat; background-position:right 12px center; background-size:16px; padding-right:36px; }
+  .patient-result { padding:10px 14px; border-radius:10px; cursor:pointer; transition:background 0.1s; }
+  .patient-result:hover { background:#eff6ff; }
+  .status-ACTIVE { background:#dcfce7; color:#166534; }
+  .status-COMPLETED { background:#dbeafe; color:#1e40af; }
+  .status-CANCELLED { background:#fee2e2; color:#991b1b; }
+  .status-SUSPENDED { background:#fef3c7; color:#92400e; }
+  .toast { animation:slideUp 0.3s ease; }
+  @keyframes slideUp { from{transform:translateY(20px);opacity:0} to{transform:translateY(0);opacity:1} }
+  .skeleton { background:linear-gradient(90deg,#e2e8f0 25%,#f1f5f9 50%,#e2e8f0 75%); background-size:200% 100%; animation:shimmer 1.5s infinite; }
+  @keyframes shimmer { 0%{background-position:200% 0} 100%{background-position:-200% 0} }
+  .required::after { content:" *"; color:#ef4444; }
+</style>
+</head>
+<body>
+
+<div id="nav-main-content" class="nav-main p-4 md:p-6">
+
+  <!-- Header -->
+  <div class="flex items-center justify-between mb-4 md:mb-6 pt-2 md:pt-0">
+    <div>
+      <h2 class="text-lg md:text-xl font-bold text-gray-800">แผนการรักษา</h2>
+      <p class="text-gray-500 text-xs md:text-sm mt-0.5">จัดการแผนการรักษาผู้ป่วย</p>
+    </div>
+    <button onclick="openAddModal()"
+      class="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl px-3 md:px-4 py-2 text-xs md:text-sm font-medium transition-colors">
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+      <span class="hidden sm:inline">สร้างแผนการรักษา</span>
+      <span class="sm:hidden">สร้างแผน</span>
+    </button>
+  </div>
+
+  <!-- Search -->
+  <div class="card p-3 md:p-4 mb-4 flex gap-2 md:gap-3 flex-wrap items-center">
+    <div class="relative flex-1 min-w-36">
+      <svg class="absolute left-3 top-2.5 w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0"/></svg>
+      <input id="searchInput" type="text" placeholder="ค้นหาชื่อผู้ป่วย..."
+        class="w-full border border-gray-200 rounded-xl pl-9 pr-4 py-2 text-sm outline-none focus:border-blue-300"
+        oninput="filterPlans()">
+    </div>
+    <select id="statusFilter" class="border border-gray-200 rounded-xl px-3 py-2 text-sm text-gray-600 outline-none" onchange="filterPlans()">
+      <option value="">ทุกสถานะ</option>
+      <option value="ACTIVE">กำลังดำเนินการ</option>
+      <option value="COMPLETED">เสร็จสิ้น</option>
+      <option value="CANCELLED">ยกเลิก</option>
+      <option value="SUSPENDED">พักการรักษา</option>
+    </select>
+    <button onclick="loadPlans()" class="flex items-center gap-1 border border-gray-200 rounded-xl px-3 py-2 text-sm text-gray-600 hover:bg-gray-50">
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+    </button>
+  </div>
+
+  <!-- Stats -->
+  <div class="grid grid-cols-4 gap-2 md:gap-3 mb-4" id="statsRow">
+    <div class="skeleton h-14 rounded-xl"></div>
+    <div class="skeleton h-14 rounded-xl"></div>
+    <div class="skeleton h-14 rounded-xl"></div>
+    <div class="skeleton h-14 rounded-xl"></div>
+  </div>
+
+  <!-- Plan List -->
+  <div id="planList" class="space-y-3">
+    <div class="skeleton h-24 rounded-xl"></div>
+    <div class="skeleton h-24 rounded-xl"></div>
+    <div class="skeleton h-24 rounded-xl"></div>
+  </div>
+
+  <div id="listFooter" class="text-xs text-gray-400 mt-3 text-center"></div>
+
+</div>
+
+<!-- ═══ Modal สร้าง/แก้ไขแผนการรักษา ═══ -->
+<div id="planModal" class="hidden fixed inset-0 modal-overlay z-50 flex items-start justify-center p-2 md:p-4 overflow-y-auto">
+  <div class="bg-white rounded-2xl w-full max-w-2xl my-4 shadow-2xl">
+
+    <div class="flex items-center justify-between px-5 py-4 border-b border-gray-100 sticky top-0 bg-white rounded-t-2xl z-10">
+      <h3 id="modalTitle" class="font-bold text-gray-800 text-lg">สร้างแผนการรักษา</h3>
+      <button onclick="closeModal()" class="w-8 h-8 flex items-center justify-center rounded-xl text-gray-400 hover:bg-gray-100">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+      </button>
+    </div>
+
+    <div class="p-5">
+
+      <!-- ส่วนที่ 1: เลือกผู้ป่วย -->
+      <div class="form-section">
+        <div class="form-section-title">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
+          ผู้ป่วย <span class="text-red-500 font-normal">*</span>
+        </div>
+        <div class="relative mb-2">
+          <svg class="absolute left-3 top-3 w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0"/></svg>
+          <input id="patientSearch" type="text" placeholder="พิมพ์ชื่อเพื่อค้นหาผู้ป่วย..."
+            class="form-input pl-10" oninput="searchPatient(this.value)">
+        </div>
+        <div id="searchResults" class="hidden border border-gray-100 rounded-xl overflow-hidden mb-2 max-h-40 overflow-y-auto"></div>
+        <div id="selectedPatient" class="hidden bg-blue-50 border border-blue-200 rounded-xl p-3">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-2">
+              <div class="w-8 h-8 rounded-full bg-blue-200 flex items-center justify-center text-blue-700 font-bold text-sm" id="selAvatar">?</div>
+              <div>
+                <p id="selName" class="font-semibold text-gray-800 text-sm">-</p>
+                <p id="selInfo" class="text-gray-500 text-xs">-</p>
+              </div>
+            </div>
+            <button onclick="clearPatient()" class="text-gray-400 hover:text-gray-600 text-xs">เปลี่ยน</button>
+          </div>
+        </div>
+        <input type="hidden" id="f_patient_id">
+      </div>
+
+      <!-- ส่วนที่ 2: ข้อมูลแผนการรักษา -->
+      <div class="form-section">
+        <div class="form-section-title">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+          ข้อมูลแผนการรักษา
+        </div>
+        <div class="grid grid-cols-2 gap-3 mb-3">
+          <div>
+            <label class="form-label required">วันที่เริ่มรักษา</label>
+            <input id="f_start_date" type="date" class="form-input">
+          </div>
+          <div>
+            <label class="form-label">วันที่สิ้นสุด</label>
+            <input id="f_end_date" type="date" class="form-input">
+          </div>
+        </div>
+        <div class="grid grid-cols-2 gap-3 mb-3">
+          <div>
+            <label class="form-label required">ประเภทการรักษา</label>
+            <select id="f_treatment_type" class="form-input">
+              <option value="">-- เลือก --</option>
+              <option value="COMMUNITY">ดูแลในชุมชน</option>
+              <option value="OUTPATIENT">ผู้ป่วยนอก</option>
+              <option value="INPATIENT">ผู้ป่วยใน</option>
+              <option value="REHABILITATION">ฟื้นฟูสมรรถภาพ</option>
+            </select>
+          </div>
+          <div>
+            <label class="form-label required">ความถี่การเยี่ยม</label>
+            <select id="f_visit_frequency" class="form-input">
+              <option value="">-- เลือก --</option>
+              <option value="TRIDAY">ทุก 3 วัน</option>
+              <option value="WEEKLY">ทุกสัปดาห์</option>
+              <option value="BIWEEKLY">ทุก 2 สัปดาห์</option>
+              <option value="MONTHLY">ทุกเดือน</option>
+            </select>
+          </div>
+        </div>
+        <div class="mb-3">
+          <label class="form-label">วันนัดทบทวนครั้งถัดไป</label>
+          <input id="f_next_review_date" type="date" class="form-input">
+        </div>
+        <div>
+          <label class="form-label">สถานะแผน</label>
+          <select id="f_status" class="form-input">
+            <option value="ACTIVE">ACTIVE — กำลังดำเนินการ</option>
+            <option value="COMPLETED">COMPLETED — เสร็จสิ้น</option>
+            <option value="SUSPENDED">SUSPENDED — พักการรักษา</option>
+            <option value="CANCELLED">CANCELLED — ยกเลิก</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- ส่วนที่ 3: ยาและการรักษา -->
+      <div class="form-section">
+        <div class="form-section-title">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z"/></svg>
+          ยาและการรักษา
+        </div>
+        <div class="grid grid-cols-2 gap-3 mb-3">
+          <div>
+            <label class="form-label">รายการยา</label>
+            <input id="f_medication" type="text" placeholder="ชื่อยา เช่น Haloperidol" class="form-input">
+          </div>
+          <div>
+            <label class="form-label">ขนาดและวิธีใช้</label>
+            <input id="f_dosage" type="text" placeholder="เช่น 5mg วันละ 1 ครั้ง" class="form-input">
+          </div>
+        </div>
+        <div>
+          <label class="form-label">คำแนะนำพิเศษ</label>
+          <textarea id="f_special_instructions" rows="2"
+            placeholder="คำแนะนำพิเศษสำหรับผู้ดูแล..."
+            class="form-input resize-none"></textarea>
+        </div>
+      </div>
+
+      <!-- ส่วนที่ 4: เป้าหมายการรักษา -->
+      <div class="form-section">
+        <div class="form-section-title">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+          เป้าหมายและหมายเหตุ
+        </div>
+        <div class="mb-3">
+          <label class="form-label">เป้าหมายการรักษา</label>
+          <textarea id="f_goals" rows="3"
+            placeholder="ระบุเป้าหมายการรักษา เช่น ลดอาการกำเริบ ให้ผู้ป่วยกลับมาใช้ชีวิตปกติ..."
+            class="form-input resize-none"></textarea>
+        </div>
+        <div>
+          <label class="form-label">หมายเหตุ</label>
+          <textarea id="f_note" rows="2"
+            placeholder="หมายเหตุเพิ่มเติม..."
+            class="form-input resize-none"></textarea>
+        </div>
+      </div>
+
+      <!-- Error -->
+      <div id="modalError" class="hidden bg-red-50 border border-red-200 rounded-xl p-3 text-red-600 text-sm mb-4"></div>
+
+    </div>
+
+    <div class="flex gap-3 px-5 pb-5 sticky bottom-0 bg-white border-t border-gray-100 pt-4">
+      <button onclick="closeModal()" class="flex-1 border border-gray-200 rounded-xl py-2.5 text-sm text-gray-600 hover:bg-gray-50">ยกเลิก</button>
+      <button onclick="savePlan()" id="saveBtn" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white rounded-xl py-2.5 text-sm font-medium transition-colors">บันทึก</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div id="toast" class="hidden fixed bottom-20 md:bottom-6 left-1/2 -translate-x-1/2 z-50 toast">
+  <div id="toastInner" class="px-5 py-3 rounded-xl shadow-lg text-sm font-medium text-white">
+    <span id="toastMsg"></span>
+  </div>
+</div>
+
+<script src="../js/config.js"></script>
+<script src="../js/auth.js"></script>
+<script src="../js/api.js"></script>
+<script src="../js/nav.js"></script>
+<script>
+NAV.init();
+
+const session = Auth.getSession();
+let allPatients = [];
+let allPlans    = [];
+let selectedPid = null;
+let editingId   = null;
+
+const STATUS_LABELS = {
+  ACTIVE:"กำลังดำเนินการ", COMPLETED:"เสร็จสิ้น",
+  CANCELLED:"ยกเลิก", SUSPENDED:"พักการรักษา"
+};
+const STATUS_BADGE = {
+  ACTIVE:"status-ACTIVE", COMPLETED:"status-COMPLETED",
+  CANCELLED:"status-CANCELLED", SUSPENDED:"status-SUSPENDED"
+};
+const TYPE_LABELS = {
+  COMMUNITY:"ดูแลในชุมชน", OUTPATIENT:"ผู้ป่วยนอก",
+  INPATIENT:"ผู้ป่วยใน", REHABILITATION:"ฟื้นฟูสมรรถภาพ"
+};
+const FREQ_LABELS = {
+  TRIDAY:"ทุก 3 วัน", WEEKLY:"ทุกสัปดาห์",
+  BIWEEKLY:"ทุก 2 สัปดาห์", MONTHLY:"ทุกเดือน"
+};
+
+// ── โหลดผู้ป่วย ───────────────────────────────────────────────
+async function loadAllPatients() {
+  const res = await API.getPatients();
+  if (res.success) allPatients = res.data||[];
+}
+
+// ── โหลดแผนการรักษา ──────────────────────────────────────────
+async function loadPlans() {
+  document.getElementById("planList").innerHTML =
+    `<div class="skeleton h-24 rounded-xl mb-2"></div>
+     <div class="skeleton h-24 rounded-xl mb-2"></div>`;
+
+  const res = await API.call("plan.get", {});
+  if (!res.success && res.error !== "NOT_FOUND") {
+    showToast("โหลดข้อมูลไม่สำเร็จ","error"); return;
+  }
+
+  // โหลดจาก patients แทน เพราะ plan.get ต้องการ patient_id
+  // ดึงข้อมูล plan จากผู้ป่วยทุกคน
+  allPlans = [];
+  for (const p of allPatients.slice(0, 50)) {
+    const r = await API.call("plan.get", { patient_id: p.patient_id });
+    if (r.success && r.data) {
+      allPlans.push({ ...r.data, patient_name: `${p.title||""} ${p.first_name} ${p.last_name}`.trim() });
+    }
+  }
+
+  renderStats();
+  filterPlans();
+}
+
+function renderStats() {
+  const active    = allPlans.filter(p=>p.status==="ACTIVE").length;
+  const completed = allPlans.filter(p=>p.status==="COMPLETED").length;
+  const suspended = allPlans.filter(p=>p.status==="SUSPENDED").length;
+  const cancelled = allPlans.filter(p=>p.status==="CANCELLED").length;
+  document.getElementById("statsRow").innerHTML = `
+    <div class="card p-3 text-center border-l-4 border-green-400"><p class="text-xl font-bold text-green-600">${active}</p><p class="text-gray-400 text-xs">กำลังดำเนินการ</p></div>
+    <div class="card p-3 text-center border-l-4 border-blue-400"><p class="text-xl font-bold text-blue-600">${completed}</p><p class="text-gray-400 text-xs">เสร็จสิ้น</p></div>
+    <div class="card p-3 text-center border-l-4 border-yellow-400"><p class="text-xl font-bold text-yellow-600">${suspended}</p><p class="text-gray-400 text-xs">พักการรักษา</p></div>
+    <div class="card p-3 text-center border-l-4 border-red-300"><p class="text-xl font-bold text-red-500">${cancelled}</p><p class="text-gray-400 text-xs">ยกเลิก</p></div>
+  `;
+}
+
+function filterPlans() {
+  const s  = document.getElementById("searchInput").value.toLowerCase();
+  const st = document.getElementById("statusFilter").value;
+  const filtered = allPlans.filter(p => {
+    const ms = !s  || (p.patient_name||"").toLowerCase().includes(s);
+    const mst= !st || p.status===st;
+    return ms && mst;
+  });
+  renderList(filtered);
+}
+
+function renderList(plans) {
+  const container = document.getElementById("planList");
+  const footer    = document.getElementById("listFooter");
+  if (!plans.length) {
+    container.innerHTML=`<div class="card p-8 text-center text-gray-400 text-sm">ไม่มีแผนการรักษา</div>`;
+    footer.textContent=""; return;
+  }
+  container.innerHTML = plans.map(p => {
+    const sc = STATUS_BADGE[p.status]||"status-ACTIVE";
+    const sl = STATUS_LABELS[p.status]||p.status;
+    const tl = TYPE_LABELS[p.treatment_type]||p.treatment_type||"-";
+    const fl = FREQ_LABELS[p.visit_frequency]||p.visit_frequency||"-";
+    return `
+    <div class="card p-4 hover:shadow-md transition-shadow cursor-pointer" onclick="editPlan('${p.plan_id}')">
+      <div class="flex items-start justify-between mb-2">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 font-bold text-sm flex-shrink-0">
+            ${(p.patient_name||"?")[0]}
+          </div>
+          <div>
+            <p class="font-semibold text-gray-800 text-sm">${p.patient_name||"-"}</p>
+            <p class="text-gray-500 text-xs">${tl} · ${fl}</p>
+          </div>
+        </div>
+        <span class="text-xs px-2.5 py-1 rounded-full font-medium ${sc}">${sl}</span>
+      </div>
+      <div class="grid grid-cols-2 gap-2 text-xs text-gray-500 mt-2">
+        <span>เริ่ม: ${p.start_date||"-"}</span>
+        <span>สิ้นสุด: ${p.end_date||"-"}</span>
+        ${p.medication ? `<span class="col-span-2">💊 ${p.medication} ${p.dosage||""}</span>` : ""}
+        ${p.next_review_date ? `<span class="col-span-2">📅 นัดทบทวน: ${p.next_review_date}</span>` : ""}
+      </div>
+      ${p.goals ? `<p class="text-xs text-gray-500 mt-2 bg-gray-50 rounded-lg p-2 line-clamp-2">${p.goals}</p>` : ""}
+    </div>`;
+  }).join("");
+  footer.textContent = `ทั้งหมด ${plans.length} แผน`;
+}
+
+// ── Patient Search ────────────────────────────────────────────
+function searchPatient(q) {
+  q = q.toLowerCase().trim();
+  const results = document.getElementById("searchResults");
+  if (!q) { results.classList.add("hidden"); return; }
+  const matches = allPatients.filter(p => {
+    const name = `${p.first_name||""} ${p.last_name||""}`.toLowerCase();
+    return name.includes(q) || String(p.id_card||"").includes(q);
+  }).slice(0, 6);
+  if (!matches.length) {
+    results.innerHTML=`<div class="patient-result text-gray-400 text-sm">ไม่พบผู้ป่วย</div>`;
+  } else {
+    results.innerHTML = matches.map(p=>`
+      <div class="patient-result" onclick="selectPatient('${p.patient_id}')">
+        <p class="font-medium text-gray-800 text-sm">${p.title||""} ${p.first_name||""} ${p.last_name||""}</p>
+        <p class="text-gray-400 text-xs">ม.${p.moo||"-"} ต.${p.tambon||"-"} · ระดับ ${p.risk_category||"0"}</p>
+      </div>`).join("");
+  }
+  results.classList.remove("hidden");
+}
+
+function selectPatient(pid) {
+  const p = allPatients.find(x=>x.patient_id===pid);
+  if (!p) return;
+  selectedPid = pid;
+  document.getElementById("f_patient_id").value = pid;
+  document.getElementById("searchResults").classList.add("hidden");
+  document.getElementById("patientSearch").value="";
+  document.getElementById("selName").textContent=`${p.title||""} ${p.first_name||""} ${p.last_name||""}`;
+  document.getElementById("selInfo").textContent=`ม.${p.moo||"-"} ต.${p.tambon||"-"} · ระดับ ${p.risk_category||"0"}`;
+  document.getElementById("selAvatar").textContent=(p.first_name||"?")[0];
+  document.getElementById("selectedPatient").classList.remove("hidden");
+}
+
+function clearPatient() {
+  selectedPid=null;
+  document.getElementById("f_patient_id").value="";
+  document.getElementById("selectedPatient").classList.add("hidden");
+  document.getElementById("patientSearch").value="";
+}
+
+// ── Modal ─────────────────────────────────────────────────────
+const FIELDS = [
+  "patient_id","start_date","end_date","treatment_type",
+  "visit_frequency","next_review_date","status",
+  "medication","dosage","special_instructions","goals","note"
+];
+
+function openAddModal() {
+  editingId   = null;
+  selectedPid = null;
+  document.getElementById("modalTitle").textContent = "สร้างแผนการรักษา";
+  FIELDS.forEach(f => {
+    const el = document.getElementById("f_"+f);
+    if (!el) return;
+    if (el.tagName==="SELECT") el.value = el.options[0]?.value||"";
+    else el.value = "";
+  });
+  document.getElementById("f_start_date").value = new Date().toISOString().split("T")[0];
+  document.getElementById("f_status").value = "ACTIVE";
+  document.getElementById("f_treatment_type").value = "COMMUNITY";
+  document.getElementById("f_visit_frequency").value = "WEEKLY";
+  document.getElementById("selectedPatient").classList.add("hidden");
+  document.getElementById("patientSearch").value = "";
+  document.getElementById("modalError").classList.add("hidden");
+  document.getElementById("planModal").classList.remove("hidden");
+}
+
+function editPlan(planId) {
+  const plan = allPlans.find(p=>p.plan_id===planId);
+  if (!plan) return;
+  editingId   = planId;
+  selectedPid = plan.patient_id;
+  document.getElementById("modalTitle").textContent = "แก้ไขแผนการรักษา";
+
+  // แสดงชื่อผู้ป่วย
+  const patient = allPatients.find(p=>p.patient_id===plan.patient_id);
+  if (patient) {
+    document.getElementById("selName").textContent=`${patient.title||""} ${patient.first_name||""} ${patient.last_name||""}`;
+    document.getElementById("selInfo").textContent=`ม.${patient.moo||"-"} ต.${patient.tambon||"-"}`;
+    document.getElementById("selAvatar").textContent=(patient.first_name||"?")[0];
+    document.getElementById("selectedPatient").classList.remove("hidden");
+    document.getElementById("patientSearch").value="";
+  }
+
+  FIELDS.forEach(f => {
+    const el = document.getElementById("f_"+f);
+    if (el) el.value = plan[f]||"";
+  });
+  document.getElementById("modalError").classList.add("hidden");
+  document.getElementById("planModal").classList.remove("hidden");
+}
+
+function closeModal() { document.getElementById("planModal").classList.add("hidden"); }
+
+async function savePlan() {
+  const patientId      = document.getElementById("f_patient_id").value || selectedPid;
+  const startDate      = document.getElementById("f_start_date").value;
+  const treatmentType  = document.getElementById("f_treatment_type").value;
+  const visitFrequency = document.getElementById("f_visit_frequency").value;
+
+  if (!patientId)      return showModalError("กรุณาเลือกผู้ป่วย");
+  if (!startDate)      return showModalError("กรุณาระบุวันที่เริ่มรักษา");
+  if (!treatmentType)  return showModalError("กรุณาเลือกประเภทการรักษา");
+  if (!visitFrequency) return showModalError("กรุณาเลือกความถี่การเยี่ยม");
+
+  const btn = document.getElementById("saveBtn");
+  btn.disabled=true; btn.textContent="กำลังบันทึก...";
+
+  const data = {
+    patient_id:           patientId,
+    start_date:           startDate,
+    end_date:             document.getElementById("f_end_date").value||"",
+    treatment_type:       treatmentType,
+    visit_frequency:      visitFrequency,
+    next_review_date:     document.getElementById("f_next_review_date").value||"",
+    medication:           document.getElementById("f_medication").value||"",
+    dosage:               document.getElementById("f_dosage").value||"",
+    special_instructions: document.getElementById("f_special_instructions").value||"",
+    goals:                document.getElementById("f_goals").value||"",
+    note:                 document.getElementById("f_note").value||""
+  };
+
+  let res;
+  if (editingId) {
+    res = await API.call("plan.update", { plan_id: editingId, ...data });
+  } else {
+    res = await API.call("plan.create", data);
+  }
+
+  btn.disabled=false; btn.textContent="บันทึก";
+
+  if (res.success) {
+    closeModal();
+    showToast(editingId?"แก้ไขแผนสำเร็จ ✅":"สร้างแผนการรักษาสำเร็จ ✅","success");
+    await loadPlans();
+  } else {
+    showModalError(res.message||"บันทึกไม่สำเร็จ");
+  }
+}
+
+function showModalError(msg) {
+  const el=document.getElementById("modalError");
+  el.textContent=msg; el.classList.remove("hidden");
+}
+
+let toastTimer;
+function showToast(msg,type="success") {
+  const t=document.getElementById("toast"),i=document.getElementById("toastInner"),m=document.getElementById("toastMsg");
+  i.className=`px-5 py-3 rounded-xl shadow-lg text-sm font-medium text-white ${type==="success"?"bg-green-600":"bg-red-500"}`;
+  m.textContent=msg; t.classList.remove("hidden");
+  clearTimeout(toastTimer); toastTimer=setTimeout(()=>t.classList.add("hidden"),3500);
+}
+
+// ── Init ──────────────────────────────────────────────────────
+async function init() {
+  await loadAllPatients();
+  await loadPlans();
+}
+
+init();
+</script>
+</body>
+</html>
