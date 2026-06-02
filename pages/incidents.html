@@ -28,6 +28,12 @@
   .toast { animation:slideUp 0.3s ease; }
   @keyframes slideUp { from{transform:translateY(20px);opacity:0} to{transform:translateY(0);opacity:1} }
   .skeleton { background:linear-gradient(90deg,#e2e8f0 25%,#f1f5f9 50%,#e2e8f0 75%); background-size:200% 100%; animation:shimmer 1.5s infinite; }
+  .photo-upload-area { border:2px dashed #e5e7eb; border-radius:12px; padding:16px; text-align:center; cursor:pointer; transition:all 0.2s; }
+  .photo-upload-area:hover { border-color:#3b82f6; background:#eff6ff; }
+  .photo-upload-area.has-photo { border-color:#22c55e; background:#f0fdf4; border-style:solid; }
+  .photo-preview { width:100%; max-height:180px; object-fit:cover; border-radius:10px; margin-top:8px; }
+  .upload-progress { height:4px; background:#e5e7eb; border-radius:99px; overflow:hidden; margin-top:8px; }
+  .upload-progress-bar { height:100%; background:linear-gradient(90deg,#3b82f6,#06b6d4); border-radius:99px; transition:width 0.3s; width:0%; }
   @keyframes shimmer { 0%{background-position:200% 0} 100%{background-position:-200% 0} }
   .incident-card { border-left:4px solid #e5e7eb; }
   .incident-card.OPEN { border-left-color:#ef4444; }
@@ -203,8 +209,27 @@
           <input id="f_timestamp" type="datetime-local" class="form-input">
         </div>
         <div class="mb-3">
-          <label class="form-label">URL รูปภาพประกอบ (Google Drive)</label>
-          <input id="f_photo_url" type="text" placeholder="https://drive.google.com/..." class="form-input text-xs">
+          <label class="form-label">รูปภาพประกอบ</label>
+          <!-- Photo Upload Area -->
+          <div id="photoUploadArea" class="photo-upload-area" onclick="document.getElementById('photoFileInput').click()">
+            <svg class="w-8 h-8 text-gray-300 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+            <p id="photoUploadText" class="text-sm text-gray-500">แตะเพื่อเลือกรูปภาพ</p>
+            <p class="text-xs text-gray-400 mt-1">JPG, PNG ขนาดไม่เกิน 5MB</p>
+            <img id="photoPreview" class="photo-preview hidden" alt="preview">
+          </div>
+          <!-- Progress Bar -->
+          <div class="upload-progress hidden" id="uploadProgress">
+            <div class="upload-progress-bar" id="uploadProgressBar"></div>
+          </div>
+          <!-- Upload Status -->
+          <div id="uploadStatus" class="hidden mt-2 text-xs text-center"></div>
+          <!-- Hidden file input -->
+          <input id="photoFileInput" type="file" accept="image/*" class="hidden" onchange="handlePhotoSelect(this)">
+          <!-- URL (hidden, filled automatically) -->
+          <input id="f_photo_url" type="text" class="form-input text-xs mt-2 hidden" placeholder="URL จะถูกกรอกอัตโนมัติ" readonly>
+          <!-- Manual URL fallback -->
+          <button onclick="toggleManualUrl()" class="text-xs text-blue-500 hover:underline mt-1">กรอก URL ด้วยตนเอง</button>
+          <input id="f_photo_url_manual" type="text" placeholder="https://drive.google.com/..." class="form-input text-xs mt-2 hidden">
         </div>
         <div>
           <label class="form-label">การดำเนินการเบื้องต้น</label>
@@ -479,6 +504,14 @@ function openAddModal() {
   document.getElementById("f_description").value="";
   document.getElementById("f_action_taken").value="";
   document.getElementById("f_photo_url").value="";
+  document.getElementById("f_photo_url_manual").value="";
+  document.getElementById("photoFileInput").value="";
+  document.getElementById("photoPreview").classList.add("hidden");
+  document.getElementById("photoPreview").src="";
+  document.getElementById("photoUploadArea").classList.remove("has-photo");
+  document.getElementById("photoUploadText").textContent="แตะเพื่อเลือกรูปภาพ";
+  document.getElementById("uploadStatus").classList.add("hidden");
+  document.getElementById("uploadProgress").classList.add("hidden");
   document.getElementById("f_latitude").value="";
   document.getElementById("f_longitude").value="";
   document.getElementById("f_geo_address").value="";
@@ -507,7 +540,12 @@ async function saveIncident() {
   if (!sev)  return showModalError("กรุณาเลือกระดับความรุนแรง");
 
   const btn=document.getElementById("saveBtn");
-  btn.disabled=true; btn.textContent="กำลังบันทึก...";
+  btn.disabled=true; btn.textContent="กำลังอัปโหลดรูป...";
+
+  // อัปโหลดรูปก่อน (ถ้ามี)
+  const photoUrl = await uploadPhoto(selectedPid);
+
+  btn.textContent="กำลังบันทึก...";
 
   const data = {
     patient_id:     selectedPid,
@@ -522,7 +560,7 @@ async function saveIncident() {
     latitude:       document.getElementById("f_latitude").value,
     longitude:      document.getElementById("f_longitude").value,
     geo_address:    document.getElementById("f_geo_address").value,
-    photo_url:      document.getElementById("f_photo_url").value,
+    photo_url:      photoUrl || document.getElementById("f_photo_url_manual").value || "",
     action_taken:   document.getElementById("f_action_taken").value,
     status:         "OPEN",
   };
@@ -567,6 +605,100 @@ function showToast(msg,type="success") {
   i.className=`px-5 py-3 rounded-xl shadow-lg text-sm font-medium text-white ${type==="success"?"bg-green-600":"bg-red-500"}`;
   m.textContent=msg; t.classList.remove("hidden");
   clearTimeout(toastTimer); toastTimer=setTimeout(()=>t.classList.add("hidden"),3500);
+}
+
+// ── Photo Upload ──────────────────────────────────────────────
+function handlePhotoSelect(input) {
+  const file = input.files[0];
+  if (!file) return;
+
+  // ตรวจขนาด
+  if (file.size > 5 * 1024 * 1024) {
+    showToast("ไฟล์ใหญ่เกิน 5MB กรุณาลดขนาดก่อน","error");
+    return;
+  }
+
+  // แสดง Preview
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    const preview = document.getElementById("photoPreview");
+    preview.src = e.target.result;
+    preview.classList.remove("hidden");
+    document.getElementById("photoUploadText").textContent = file.name;
+    document.getElementById("photoUploadArea").classList.add("has-photo");
+  };
+  reader.readAsDataURL(file);
+}
+
+async function uploadPhoto(patientId) {
+  const input = document.getElementById("photoFileInput");
+  const file  = input.files[0];
+
+  // ถ้าไม่มีรูป ตรวจ manual URL
+  if (!file) {
+    const manual = document.getElementById("f_photo_url_manual").value;
+    return manual || "";
+  }
+
+  // แสดง Progress
+  const progress    = document.getElementById("uploadProgress");
+  const progressBar = document.getElementById("uploadProgressBar");
+  const statusEl    = document.getElementById("uploadStatus");
+  progress.classList.remove("hidden");
+  statusEl.classList.remove("hidden");
+  statusEl.className = "mt-2 text-xs text-center text-blue-600";
+  statusEl.textContent = "กำลังอัปโหลด...";
+
+  // Animate progress
+  let pct = 0;
+  const timer = setInterval(() => {
+    pct = Math.min(pct + 10, 85);
+    progressBar.style.width = pct + "%";
+  }, 200);
+
+  try {
+    // อ่านไฟล์เป็น Base64
+    const base64 = await new Promise((res, rej) => {
+      const r = new FileReader();
+      r.onload  = () => res(r.result.split(",")[1]);
+      r.onerror = () => rej(new Error("อ่านไฟล์ไม่ได้"));
+      r.readAsDataURL(file);
+    });
+
+    const res = await API.call("media.upload", {
+      file_base64: base64,
+      file_name:   file.name,
+      mime_type:   file.type,
+      patient_id:  patientId || "",
+      note:        "อัปโหลดจากหน้าแจ้งเหตุ"
+    });
+
+    clearInterval(timer);
+
+    if (res.success) {
+      progressBar.style.width = "100%";
+      statusEl.className = "mt-2 text-xs text-center text-green-600";
+      statusEl.textContent = "✅ อัปโหลดสำเร็จ";
+      document.getElementById("f_photo_url").value = res.data.file_url;
+      setTimeout(() => progress.classList.add("hidden"), 1000);
+      return res.data.file_url;
+    } else {
+      throw new Error(res.message || "อัปโหลดไม่สำเร็จ");
+    }
+
+  } catch (err) {
+    clearInterval(timer);
+    progress.classList.add("hidden");
+    statusEl.className = "mt-2 text-xs text-center text-red-500";
+    statusEl.textContent = "❌ " + err.message;
+    return "";
+  }
+}
+
+function toggleManualUrl() {
+  const el = document.getElementById("f_photo_url_manual");
+  el.classList.toggle("hidden");
+  if (!el.classList.contains("hidden")) el.focus();
 }
 
 async function init() {
