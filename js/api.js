@@ -36,7 +36,7 @@ const API = (() => {
     // Incident
     getIncidents:  (params = {})        => call("incident.list",     params),
     saveIncident:  (data)               => call("incident.create",   data),
-    closeIncident: (incident_id, note, status) => call("incident.resolve", { incident_id, note, status }),
+    closeIncident: (incident_id, note, status) => call("incident.resolve", { incident_id, action_taken: note, status }),
 
     // Dashboard
     getDashboard:  ()                   => call("dashboard.summary", {}),
