@@ -7,7 +7,7 @@ const APP_CONFIG = {
   APP_SUBTITLE: "อำเภอพิมาย จังหวัดนครราชสีมา",
   VERSION: "2.0.0",
 
-  GAS_URL: "https://script.google.com/macros/s/AKfycbzH3c9whKGkwlQMKVhTD-5H8cOkpyW0rTrVuL-hOAyZX9YdwfHX2Y-Xprh6wnnQN4tm/exec",
+  GAS_URL: "https://script.google.com/macros/s/AKfycbzcOqRElg3WarPCET9xh5uris4VOgXnWFYzEx4bcVqHD5wQV5wbPW9_8d9XgK71XLwu/exec",
 
   SESSION_KEY: "samegla_session",
   TOKEN_KEY: "samegla_token",
