@@ -5,7 +5,7 @@ const APP_CONFIG = {
   APP_NAME: "ระบบสามเกลอ",
   APP_SUBTITLE: "อำเภอพิมาย จังหวัดนครราชสีมา",
   VERSION: "2.1.0",
-  GAS_URL: "https://script.google.com/macros/s/AKfycbwyZ68hoqcMmaqhF_vnyldV2isPLvbRY8khSlz7vDMrHIwQssPuBJqpDMmBEG4ddd5u/exec",
+  GAS_URL: "https://script.google.com/macros/s/AKfycbwhhpgTBCQ2sMn028bT0Owth8Ox8Rm2_fKGtkbijU6BTGHfme0Bu0PtqOBm2gIB1Upi/exec",
   SESSION_KEY: "samegla_session",
   TOKEN_KEY: "samegla_token",
   SESSION_TIMEOUT: 28800,
