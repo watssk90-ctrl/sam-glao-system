@@ -120,7 +120,7 @@
   });
 
   async function loadDashboard() {
-    const res = await API.getDashboard();
+    const res = await CachedAPI.getDashboard();
     if (!res.success) return;
     const d = res.data;
     document.getElementById("statTotal").textContent     = d.total_patients    ?? "-";
