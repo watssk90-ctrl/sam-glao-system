@@ -286,35 +286,32 @@ async function loadAssessments() {
     `<div class="skeleton h-24 rounded-xl mb-2"></div>
      <div class="skeleton h-24 rounded-xl mb-2"></div>`;
 
-  // ดึงข้อมูลจาก followup ของผู้ป่วยที่มีความเสี่ยง
   allAssess = [];
-  const riskPatients = allPatients.filter(p =>
-    ["LEVEL_1","LEVEL_2","LEVEL_3"].includes(String(p.risk_category))
-  ).slice(0, 30);
 
-  for (const p of riskPatients) {
-    const r = await API.getFollowups(p.patient_id);
+  // สร้าง patient map สำหรับ lookup ชื่อ
+  const patientMap = {};
+  allPatients.forEach(p => { patientMap[p.patient_id] = p; });
+
+  // ดึงข้อมูลจาก assessment.list ของผู้ป่วยทุกคน
+  for (const p of allPatients.slice(0, 100)) {
+    const r = await API.call("assessment.list", { patient_id: p.patient_id });
     if (r.success && r.data?.length) {
-      r.data.slice(0, 3).forEach(f => {
+      r.data.forEach(a => {
+        const pat = patientMap[a.patient_id];
         allAssess.push({
-          assess_id:        f.followup_id,
-          patient_id:       p.patient_id,
-          patient_name:     `${p.title||""} ${p.first_name} ${p.last_name}`.trim(),
-          followup_id:      f.followup_id,
-          assessment_date:  f.timestamp?.split("T")[0]||f.created_date?.split("T")[0]||"-",
-          symptom_score:    f.sym_score||0,
-          violence_score:   f.risk_score||0,
-          total_risk_score: f.total_score||0,
-          risk_level:       f.risk_level||"LEVEL_0",
-          recommended_action: "",
-          clinical_note:    f.behavior_note||"",
-          created_date:     f.created_date||""
+          ...a,
+          patient_name: pat
+            ? `${pat.title||""} ${pat.first_name} ${pat.last_name}`.trim()
+            : a.patient_id
         });
       });
     }
   }
 
-  allAssess.sort((a,b) => new Date(b.created_date) - new Date(a.created_date));
+  allAssess.sort((a,b) =>
+    new Date(b.created_date||b.assessment_date) -
+    new Date(a.created_date||a.assessment_date));
+
   renderStats();
   filterAssessments();
 }
