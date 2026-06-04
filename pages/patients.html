@@ -375,7 +375,7 @@ const RISK_BADGE = {
 async function loadPatients() {
   document.getElementById("patientTable").innerHTML =
     `<tr><td colspan="7" class="px-4 py-10 text-center text-gray-400 text-sm">กำลังโหลด...</td></tr>`;
-  const res = await API.getPatients();
+  const res = await CachedAPI.getPatients();
   if (!res.success) { showToast("โหลดข้อมูลไม่สำเร็จ","error"); return; }
   allPatients = res.data || [];
   renderStats();
@@ -556,7 +556,8 @@ async function savePatient() {
 
   if (res.success) {
     closeModal();
-    showToast(editingId?"แก้ไขสำเร็จ ✅":"เพิ่มผู้ป่วยสำเร็จ ✅","success");
+    await CachedAPI.clearPatientCache();
+showToast("✅ บันทึกข้อมูลสำเร็จ","success");
     loadPatients();
   } else {
     showModalError(res.message||"บันทึกไม่สำเร็จ");
