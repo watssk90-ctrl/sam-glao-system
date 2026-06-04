@@ -277,7 +277,10 @@ const ACTION_LABELS = {
 // ── โหลดผู้ป่วย ───────────────────────────────────────────────
 async function loadAllPatients() {
   const res = await CachedAPI.getPatients();
-  if (res.success) allPatients = res.data||[];
+  if (res.success) {
+    allPatients = res.data||[];
+    console.log("✅ โหลดผู้ป่วยแล้ว:", allPatients.length, "ราย");
+  }
 }
 
 // ── โหลดการประเมิน ────────────────────────────────────────────
@@ -382,6 +385,18 @@ function searchPatient(q) {
   q = q.toLowerCase().trim();
   const results = document.getElementById("searchResults");
   if (!q) { results.classList.add("hidden"); return; }
+
+  // ถ้ายังโหลดไม่เสร็จ
+  if (allPatients.length === 0) {
+    results.innerHTML=`<div class="patient-result text-blue-500 text-sm">⏳ กำลังโหลดรายชื่อผู้ป่วย กรุณารอสักครู่...</div>`;
+    results.classList.remove("hidden");
+    // ลองโหลดใหม่
+    loadAllPatients().then(() => {
+      if (allPatients.length > 0) searchPatient(q);
+    });
+    return;
+  }
+
   const matches = allPatients.filter(p => {
     const name = `${p.first_name||""} ${p.last_name||""}`.toLowerCase();
     return name.includes(q) || String(p.id_card||"").includes(q);
@@ -545,7 +560,9 @@ function showToast(msg,type="success") {
 
 // ── Init ──────────────────────────────────────────────────────
 async function init() {
+  // โหลดผู้ป่วยก่อน แล้วค่อยโหลด Assessments
   await loadAllPatients();
+  console.log("✅ พร้อมค้นหาผู้ป่วย:", allPatients.length, "ราย");
   await loadAssessments();
 }
 
